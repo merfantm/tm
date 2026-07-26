@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TM | جعبه‌ابزار اداری</title>
+<meta name="description" content="تبدیل عکس، رسید و ورد به PDF و ثبت تنخواه — همه چیز داخل مرورگر شما، بدون سرور و کاملاً رایگان.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+  :root{
+    --paper:#F3EDE0;
+    --paper-line:#CBC0A3;
+    --card:#FFFDF8;
+    --ink:#24303D;
+    --ink-soft:#5B6B78;
+    --rule:#D8CFB6;
+    --stamp:#A63D2F;
+    --stamp-dark:#7E2E22;
+    --green:#3F6653;
+    --green-dark:#2E4C3E;
+    --gold:#B08D57;
+    --radius:14px;
+    --shadow: 0 2px 0 rgba(36,48,61,.06), 0 10px 24px -14px rgba(36,48,61,.35);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 27px,
+        var(--paper-line) 27px,
+        var(--paper-line) 28px
+      ),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Vazirmatn', sans-serif;
+    line-height:1.7;
+    min-height:100vh;
+  }
+
+  .num{ font-family:'JetBrains Mono','Vazirmatn',monospace; font-weight:700; letter-spacing:.02em; }
+
+  a{ color: var(--stamp); }
+
+  /* ---------- Header ---------- */
+  .site-header{
+    display:flex; align-items:center; gap:18px;
+    max-width:1100px; margin:0 auto; padding:34px 20px 18px;
+  }
+  .brand-stamp{
+    flex:0 0 auto;
+    width:76px; height:76px; border-radius:50%;
+    border:3px double var(--stamp);
+    color:var(--stamp);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700; font-size:22px;
+    transform:rotate(-9deg);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    user-select:none;
+  }
+  .site-header h1{
+    margin:0; font-size:clamp(22px,3.4vw,32px); font-weight:800; letter-spacing:-.01em;
+  }
+  .site-header p{
+    margin:4px 0 0; color:var(--ink-soft); font-size:14.5px;
+  }
+
+  /* ---------- Shell / Nav ---------- */
+  .app-shell{
+    max-width:1100px; margin:0 auto; padding:0 20px 60px;
+    display:grid; grid-template-columns: 220px 1fr; gap:22px;
+    align-items:start;
+  }
+  @media (max-width: 880px){
+    .app-shell{ grid-template-columns: 1fr; }
+  }
+
+  .tool-nav{
+    display:flex; flex-direction:column; gap:8px;
+    position:sticky; top:18px;
+    background:var(--card); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:10px; box-shadow:var(--shadow);
+  }
+  @media (max-width:880px){
+    .tool-nav{
+      position:static; flex-direction:row; overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+  }
+  .tool-nav button{
+    all:unset; cursor:pointer;
+    display:flex; align-items:center; gap:10px;
+    padding:11px 12px; border-radius:9px;
+    font-size:14.5px; font-weight:600; color:var(--ink-soft);
+    white-space:nowrap;
+    transition: background .15s ease, color .15s ease;
+  }
+  .tool-nav button .ico{ font-size:18px; line-height:1; }
+  .tool-nav button:hover{ background:var(--paper); color:var(--ink); }
+  .tool-nav button[aria-selected="true"]{
+    background:var(--stamp); color:#fff;
+  }
+
+  /* ---------- Panels ---------- */
+  .panel{ display:none; }
+  .panel.active{ display:block; animation: fadein .25s ease; }
+  @keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+  .card{
+    background:var(--card); border:1px solid var(--rule); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:26px;
+  }
+  .card + .card{ margin-top:18px; }
+
+  .card h2{ margin:0 0 6px; font-size:21px; font-weight:800; }
+  .card .lede{ margin:0 0 20px; color:var(--ink-soft); font-size:14.5px; }
+
+  label{ display:block; font-size:13.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
+  input[type=text], input[type=number], input[type=date], textarea, select{
+    width:100%; font-family:inherit; font-size:15px; color:var(--ink);
+    background:var(--paper); border:1px solid var(--rule); border-radius:9px;
+    padding:11px 12px; outline:none;
+  }
+  input:focus, textarea:focus, select:focus{ border-color:var(--stamp); }
+  textarea{ resize:vertical; min-height:160px; line-height:1.9; }
+
+  .field{ margin-bottom:16px; }
+  .row{ display:flex; gap:14px; flex-wrap:wrap; }
+  .row > .field{ flex:1 1 160px; }
+
+  .btn{
+    all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+    background:var(--stamp); color:#fff; font-weight:700; font-size:14.5px;
+    padding:12px 20px; border-radius:9px; transition: background .15s ease, transform .1s ease;
+  }
+  .btn:hover{ background:var(--stamp-dark); }
+  .btn:active{ transform:scale(.98); }
+  .btn:disabled{ opacity:.55; cursor:not-allowed; }
+  .btn.secondary{ background:var(--ink); }
+  .btn.secondary:hover{ background:#111a22; }
+  .btn.green{ background:var(--green); }
+  .btn.green:hover{ background:var(--green-dark); }
+  .btn.ghost{ background:transparent; color:var(--ink-soft); border:1px solid var(--rule); }
+  .btn.ghost:hover{ background:var(--paper); color:var(--ink); }
+  .btn.small{ padding:7px 12px; font-size:13px; }
+
+  .dropzone{
+    border:2px dashed var(--rule); border-radius:12px; padding:30px 16px;
+    text-align:center; color:var(--ink-soft); cursor:pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .dropzone.drag{ border-color:var(--stamp); background:var(--paper); }
+  .dropzone strong{ color:var(--ink); }
+
+  .filelist{ list-style:none; margin:16px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .filelist li{
+    display:flex; align-items:center; gap:10px;
+    background:var(--paper); border:1px solid var(--rule); border-radius:9px;
+    padding:8px 10px;
+  }
+  .filelist .thumb{ width:38px; height:38px; border-radius:6px; object-fit:cover; flex:0 0 auto; background:#fff; }
+  .filelist .name{ flex:1; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .filelist .ctrls{ display:flex; gap:4px; }
+  .iconbtn{
+    all:unset; cursor:pointer; width:28px; height:28px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center; color:var(--ink-soft);
+    font-size:14px;
+  }
+  .iconbtn:hover{ background:#fff; color:var(--stamp); }
+
+  .status{ margin-top:14px; font-size:13.5px; color:var(--ink-soft); min-height:20px; }
+  .status.err{ color:var(--stamp); font-weight:600; }
+
+  .stamp-badge{
+    display:inline-flex; align-items:center; gap:8px; margin-top:16px;
+    border:3px double var(--green); color:var(--green-dark); font-weight:800;
+    padding:9px 16px; border-radius:9px; transform:rotate(-4deg) scale(.6); opacity:0;
+    transition: all .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  .stamp-badge.show{ transform:rotate(-4deg) scale(1); opacity:1; }
+
+  /* ---------- Petty cash table ---------- */
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  thead th{
+    text-align:right; font-size:12.5px; color:var(--ink-soft); font-weight:700;
+    padding:8px 10px; border-bottom:2px solid var(--rule);
+  }
+  tbody td{ padding:9px 10px; border-bottom:1px solid var(--rule); vertical-align:middle; }
+  tbody tr:hover{ background: var(--paper); }
+  .amount-cell{ font-family:'JetBrains Mono',monospace; font-weight:700; }
+  .total-row td{ font-weight:800; border-top:2px solid var(--ink); border-bottom:none; }
+  .empty-row td{ text-align:center; color:var(--ink-soft); padding:26px 10px; }
+
+  /* ---------- Intro / hero ---------- */
+  .hero{
+    background:var(--card); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:34px 28px; box-shadow:var(--shadow); position:relative; overflow:hidden;
+  }
+  .hero::after{
+    content:"TM"; position:absolute; left:-10px; bottom:-38px; font-family:'JetBrains Mono',monospace;
+    font-size:150px; font-weight:700; color:var(--paper-line); opacity:.55; line-height:1;
+    pointer-events:none;
+  }
+  .hero h2{ margin:0 0 10px; font-size:26px; font-weight:800; max-width:620px; }
+  .hero p{ margin:0; color:var(--ink-soft); max-width:560px; font-size:15px; }
+  .tool-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:22px;
+  }
+  .tool-card{
+    all:unset; cursor:pointer; display:block; background:var(--card); border:1px solid var(--rule);
+    border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  .tool-card:hover{ transform:translateY(-3px); border-color:var(--stamp); }
+  .tool-card .ico{ font-size:26px; }
+  .tool-card h3{ margin:12px 0 5px; font-size:16px; font-weight:800; }
+  .tool-card p{ margin:0; font-size:13px; color:var(--ink-soft); }
+
+  .footnote{
+    max-width:1100px; margin:0 auto; padding:0 20px 40px; color:var(--ink-soft); font-size:12.5px;
+    text-align:center;
+  }
+  .footnote code{
+    background:var(--card); border:1px solid var(--rule); border-radius:5px; padding:1px 6px;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand-stamp">TM</div>
+  <div>
+    <h1>جعبه‌ابزار اداری TM</h1>
+    <p>عکس، رسید و ورد رو به PDF تبدیل کن، متن بنویس، تنخواه ثبت کن — همه‌چیز همین‌جا توی مرورگرت، بدون سرور.</p>
+  </div>
+</header>
+
+<div class="app-shell">
+
+  <nav class="tool-nav" role="tablist" aria-label="ابزارها">
+    <button data-tab="intro" role="tab" aria-selected="true"><span class="ico">🏠</span> خانه</button>
+    <button data-tab="image" role="tab" aria-selected="false"><span class="ico">🖼</span> عکس به PDF</button>
+    <button data-tab="receipt" role="tab" aria-selected="false"><span class="ico">🧾</span> رسید به PDF</button>
+    <button data-tab="word" role="tab" aria-selected="false"><span class="ico">📄</span> ورد به PDF</button>
+    <button data-tab="text" role="tab" aria-selected="false"><span class="ico">📝</span> متن به PDF</button>
+    <button data-tab="cash" role="tab" aria-selected="false"><span class="ico">💵</span> ثبت تنخواه</button>
+  </nav>
+
+  <main class="tool-panels">
+
+    <!-- ---------------- INTRO ---------------- -->
+    <section id="panel-intro" class="panel active">
+      <div class="hero">
+        <h2>پنج تا کار اداری که هر روز تکرار می‌شن، این‌جا یک‌جا جمعشون کردیم.</h2>
+        <p>هیچ فایلی از دستگاه شما خارج نمی‌شه؛ همه‌ی پردازش‌ها (ساخت PDF، اکسل و...) داخل همین مرورگر انجام می‌شه. یعنی هم رایگانه، هم نیازی به سرور یا اینترنت پرسرعت نداره.</p>
+      </div>
+      <div class="tool-grid">
+        <button class="tool-card" data-goto="image">
+          <div class="ico">🖼</div>
+          <h3>عکس به PDF</h3>
+          <p>چند عکس رو انتخاب کن، ترتیبشون رو بچین و یک PDF بساز.</p>
+        </button>
+        <button class="tool-card" data-goto="receipt">
+          <div class="ico">🧾</div>
+          <h3>رسید کارتخوان به PDF</h3>
+          <p>چند رسید رو کنار هم توی یک صفحه جا بده و چاپ کن.</p>
+        </button>
+        <button class="tool-card" data-goto="word">
+          <div class="ico">📄</div>
+          <h3>ورد به PDF</h3>
+          <p>فایل Word رو بده تا به PDF قابل‌اشتراک تبدیلش کنیم.</p>
+        </button>
+        <button class="tool-card" data-goto="text">
+          <div class="ico">📝</div>
+          <h3>متن به PDF</h3>
+          <p>یه متن فارسی یا انگلیسی بنویس و PDF مرتب تحویل بگیر.</p>
+        </button>
+        <button class="tool-card" data-goto="cash">
+          <div class="ico">💵</div>
+          <h3>ثبت تنخواه</h3>
+          <p>هزینه‌ها رو ردیف به ردیف ثبت کن و خروجی Excel بگیر.</p>
+        </button>
+      </div>
+    </section>
+
+    <!-- ---------------- IMAGE TO PDF ---------------- -->
+    <section id="panel-image" class="panel">
+      <div class="card">
+        <h2>🖼 عکس به PDF</h2>
+        <p class="lede">عکس‌ها رو اضافه کن، با فلش‌ها ترتیبشون رو بچین، بعد PDF بساز.</p>
+
+        <div class="dropzone" id="image-drop">
+          <strong>عکس‌ها رو بکش اینجا</strong> یا کلیک کن برای انتخاب<br>
+          <input type="file" id="image-input" accept="image/*" multiple hidden>
+        </div>
+        <ul class="filelist" id="image-list"></ul>
+
+        <div class="row" style="margin-top:18px;">
+          <div class="field">
+            <label for="image-orientation">جهت صفحه</label>
+            <select id="image-orientation">
+              <option value="portrait">عمودی</option>
+              <option value="landscape">افقی</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn" id="image-build">ساخت PDF</button>
+        <div class="status" id="image-status"></div>
+      </div>
+    </section>
+
+    <!-- ---------------- RECEIPT TO PDF ---------------- -->
+    <section id="panel-receipt" class="panel">
+      <div class="card">
+        <h2>🧾 رسید کارتخوان به PDF</h2>
+        <p class="lede">چند رسید رو با هم توی صفحات A4 کنار هم می‌چینیم تا کاغذ کمتری هدر بره.</p>
+
+        <div class="dropzone" id="receipt-drop">
+          <strong>عکس رسیدها رو بکش اینجا</strong> یا کلیک کن برای انتخاب<br>
+          <input type="file" id="receipt-input" accept="image/*" multiple hidden>
+        </div>
+        <ul class="filelist" id="receipt-list"></ul>
+
+        <div class="row" style="margin-top:18px;">
+          <div class="field">
+            <label for="receipt-grid">تعداد رسید در هر صفحه</label>
+            <select id="receipt-grid">
+              <option value="1">۱ رسید</option>
+              <option value="2" selected>۲ رسید</option>
+              <option value="4">۴ رسید</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn" id="receipt-build">ساخت PDF</button>
+        <div class="status" id="receipt-status"></div>
+      </div>
+    </section>
+
+    <!-- ---------------- WORD TO PDF ---------------- -->
+    <section id="panel-word" class="panel">
+      <div class="card">
+        <h2>📄 ورد به PDF</h2>
+        <p class="lede">فایل <code>.docx</code> رو انتخاب کن. برای اسناد ساده (پاراگراف، تیتر، جدول ساده) خروجی تمیزیه؛ برای فایل‌های خیلی پیچیده ممکنه چیدمان کمی فرق کنه.</p>
+
+        <div class="dropzone" id="word-drop">
+          <strong>فایل Word رو بکش اینجا</strong> یا کلیک کن برای انتخاب<br>
+          <input type="file" id="word-input" accept=".docx" hidden>
+        </div>
+        <ul class="filelist" id="word-list"></ul>
+
+        <button class="btn" id="word-build" style="margin-top:18px;">تبدیل به PDF</button>
+        <div class="status" id="word-status"></div>
+      </div>
+    </section>
+
+    <!-- ---------------- TEXT TO PDF ---------------- -->
+    <section id="panel-text" class="panel">
+      <div class="card">
+        <h2>📝 متن به PDF</h2>
+        <p class="lede">عنوان و متن رو بنویس، یک PDF مرتب و آماده‌ی چاپ می‌سازیم.</p>
+
+        <div class="field">
+          <label for="text-title">عنوان (اختیاری)</label>
+          <input type="text" id="text-title" placeholder="مثلاً: صورت‌جلسه جلسه دوم">
+        </div>
+        <div class="field">
+          <label for="text-body">متن</label>
+          <textarea id="text-body" placeholder="متن خودت رو اینجا بنویس..."></textarea>
+        </div>
+
+        <button class="btn" id="text-build">ساخت PDF</button>
+        <div class="status" id="text-status"></div>
+      </div>
+    </section>
+
+    <!-- ---------------- PETTY CASH ---------------- -->
+    <section id="panel-cash" class="panel">
+      <div class="card">
+        <h2>💵 ثبت تنخواه</h2>
+        <p class="lede">هزینه‌ها رو یکی‌یکی اضافه کن؛ هر وقت خواستی، همه رو یک‌جا به‌صورت اکسل خروجی بگیر. توجه: چون این ابزار سروری نداره، اطلاعات فقط تا وقتی صفحه بازه ذخیره می‌مونه — پس قبل از بستن صفحه، اکسل رو دانلود کن.</p>
+
+        <div class="row">
+          <div class="field" style="flex:1 1 140px;">
+            <label for="cash-date">تاریخ</label>
+            <input type="date" id="cash-date">
+          </div>
+          <div class="field" style="flex:2 1 220px;">
+            <label for="cash-desc">شرح هزینه</label>
+            <input type="text" id="cash-desc" placeholder="مثلاً: خرید لوازم بسته‌بندی">
+          </div>
+          <div class="field" style="flex:1 1 160px;">
+            <label for="cash-cat">دسته‌بندی</label>
+            <select id="cash-cat">
+              <option>خرید کالا</option>
+              <option>حمل و نقل</option>
+              <option>قبوض</option>
+              <option>پذیرایی</option>
+              <option>متفرقه</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1 1 140px;">
+            <label for="cash-amount">مبلغ (تومان)</label>
+            <input type="number" id="cash-amount" min="0" step="1000" placeholder="0">
+          </div>
+        </div>
+
+        <button class="btn" id="cash-add">➕ افزودن ردیف</button>
+
+        <div style="overflow-x:auto; margin-top:20px;">
+          <table>
+            <thead>
+              <tr><th>تاریخ</th><th>شرح</th><th>دسته</th><th>مبلغ (تومان)</th><th></th></tr>
+            </thead>
+            <tbody id="cash-tbody">
+              <tr class="empty-row"><td colspan="5">هنوز هزینه‌ای ثبت نشده.</td></tr>
+            </tbody>
+            <tfoot>
+              <tr class="total-row"><td colspan="3">جمع کل</td><td class="amount-cell num" id="cash-total">۰</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn green" id="cash-export">📊 خروجی Excel</button>
+          <button class="btn ghost" id="cash-clear">پاک کردن همه</button>
+        </div>
+        <div class="status" id="cash-status"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<p class="footnote">
+  ساخته‌شده برای میزبانی رایگان (مثل GitHub Pages, Cloudflare Pages یا Netlify). هیچ فایلی آپلود نمی‌شه؛ همه‌چیز با <code>jsPDF</code>, <code>SheetJS</code>, <code>mammoth.js</code> و <code>html2pdf.js</code> داخل مرورگر شما اجرا می‌شه.
+</p>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= Tab navigation ================= */
+  const navButtons = document.querySelectorAll('.tool-nav [data-tab]');
+  const panels = document.querySelectorAll('.panel');
+
+  function goTo(tab){
+    panels.forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+    navButtons.forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  navButtons.forEach(b => b.addEventListener('click', () => goTo(b.dataset.tab)));
+  document.querySelectorAll('[data-goto]').forEach(b =>
+    b.addEventListener('click', () => goTo(b.dataset.goto))
+  );
+
+  /* ================= Helpers ================= */
+  function escapeHtml(str){
+    return String(str)
+      .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+      .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+  }
+
+  function setStatus(id, msg, isErr){
+    const el = document.getElementById(id);
+    el.textContent = msg || '';
+    el.classList.toggle('err', !!isErr);
+  }
+
+  function stamp(afterEl, text){
+    const old = afterEl.parentElement.querySelector('.stamp-badge');
+    if(old) old.remove();
+    const badge = document.createElement('div');
+    badge.className = 'stamp-badge';
+    badge.textContent = '✅ ' + text;
+    afterEl.insertAdjacentElement('afterend', badge);
+    requestAnimationFrame(() => badge.classList.add('show'));
+  }
+
+  function readImageDims(dataUrl){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({w: img.naturalWidth, h: img.naturalHeight});
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+
+  function fileToDataURL(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Normalize any image into a JPEG data URL via canvas, so jsPDF always
+  // gets a format it understands regardless of the original file type.
+  function normalizeToJpeg(dataUrl){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0);
+        resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.92), w: canvas.width, h: canvas.height });
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+
+  /* ================= Generic file-picker widget ================= */
+  // Wires a dropzone + hidden input + reorderable file list.
+  // Returns an object exposing getFiles().
+  function makeFilePicker({dropId, inputId, listId, multiple}){
+    const drop = document.getElementById(dropId);
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    let files = [];
+
+    function render(){
+      list.innerHTML = '';
+      files.forEach((f, i) => {
+        const li = document.createElement('li');
+
+        const thumb = document.createElement('img');
+        thumb.className = 'thumb';
+        thumb.alt = '';
+        if(f.type && f.type.startsWith('image/')){
+          const reader = new FileReader();
+          reader.onload = e => thumb.src = e.target.result;
+          reader.readAsDataURL(f);
+        }
+
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = f.name;
+
+        const ctrls = document.createElement('span');
+        ctrls.className = 'ctrls';
+
+        if(multiple){
+          const up = document.createElement('button');
+          up.className = 'iconbtn'; up.title = 'بالا'; up.textContent = '↑';
+          up.type = 'button';
+          up.disabled = i === 0;
+          up.addEventListener('click', () => { [files[i-1],files[i]]=[files[i],files[i-1]]; render(); });
+
+          const down = document.createElement('button');
+          down.className = 'iconbtn'; down.title = 'پایین'; down.textContent = '↓';
+          down.type = 'button';
+          down.disabled = i === files.length - 1;
+          down.addEventListener('click', () => { [files[i+1],files[i]]=[files[i],files[i+1]]; render(); });
+
+          ctrls.appendChild(up);
+          ctrls.appendChild(down);
+        }
+
+        const del = document.createElement('button');
+        del.className = 'iconbtn'; del.title = 'حذف'; del.textContent = '✕';
+        del.type = 'button';
+        del.addEventListener('click', () => { files.splice(i,1); render(); });
+        ctrls.appendChild(del);
+
+        li.appendChild(thumb);
+        li.appendChild(name);
+        li.appendChild(ctrls);
+        list.appendChild(li);
+      });
+    }
+
+    function addFiles(newFiles){
+      const arr = Array.from(newFiles);
+      files = multiple ? files.concat(arr) : arr.slice(0,1);
+      render();
+    }
+
+    drop.addEventListener('click', () => input.click());
+    input.addEventListener('change', e => { addFiles(e.target.files); input.value = ''; });
+
+    ['dragenter','dragover'].forEach(evt =>
+      drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.add('drag'); })
+    );
+    ['dragleave','drop'].forEach(evt =>
+      drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.remove('drag'); })
+    );
+    drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+
+    return { getFiles: () => files, clear: () => { files = []; render(); } };
+  }
+
+  /* ================= Image to PDF ================= */
+  const imagePicker = makeFilePicker({dropId:'image-drop', inputId:'image-input', listId:'image-list', multiple:true});
+
+  document.getElementById('image-build').addEventListener('click', async () => {
+    const files = imagePicker.getFiles();
+    if(files.length === 0){ setStatus('image-status','حداقل یک عکس اضافه کن.', true); return; }
+    const btn = document.getElementById('image-build');
+    btn.disabled = true;
+    setStatus('image-status','در حال ساخت PDF...');
+    try{
+      const orientation = document.getElementById('image-orientation').value;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit:'mm', format:'a4', orientation });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 8;
+
+      for(let i=0; i<files.length; i++){
+        const raw = await fileToDataURL(files[i]);
+        const { dataUrl, w, h } = await normalizeToJpeg(raw);
+        if(i > 0) doc.addPage(undefined, orientation);
+        const maxW = pageW - margin*2, maxH = pageH - margin*2;
+        const ratio = Math.min(maxW / (w/96*25.4), maxH / (h/96*25.4));
+        // fit by aspect ratio directly in mm-space
+        const arW = w / h;
+        let drawW = maxW, drawH = maxW / arW;
+        if(drawH > maxH){ drawH = maxH; drawW = maxH * arW; }
+        const x = (pageW - drawW) / 2;
+        const y = (pageH - drawH) / 2;
+        doc.addImage(dataUrl, 'JPEG', x, y, drawW, drawH);
+      }
+      doc.save('عکس‌ها.pdf');
+      setStatus('image-status','');
+      stamp(btn, 'PDF ساخته و دانلود شد');
+    }catch(err){
+      console.error(err);
+      setStatus('image-status', 'مشکلی پیش اومد: ' + err.message, true);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  /* ================= Receipt to PDF (grid layout) ================= */
+  const receiptPicker = makeFilePicker({dropId:'receipt-drop', inputId:'receipt-input', listId:'receipt-list', multiple:true});
+
+  document.getElementById('receipt-build').addEventListener('click', async () => {
+    const files = receiptPicker.getFiles();
+    if(files.length === 0){ setStatus('receipt-status','حداقل یک رسید اضافه کن.', true); return; }
+    const btn = document.getElementById('receipt-build');
+    btn.disabled = true;
+    setStatus('receipt-status','در حال ساخت PDF...');
+    try{
+      const perPage = parseInt(document.getElementById('receipt-grid').value, 10);
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 8, gap = 6;
+
+      // layout: 1 -> 1x1, 2 -> 1x2 (stacked), 4 -> 2x2
+      const cols = perPage === 4 ? 2 : 1;
+      const rows = perPage === 1 ? 1 : (perPage === 2 ? 2 : 2);
+      const cellW = (pageW - margin*2 - gap*(cols-1)) / cols;
+      const cellH = (pageH - margin*2 - gap*(rows-1)) / rows;
+
+      for(let i=0; i<files.length; i++){
+        const slot = i % perPage;
+        if(i > 0 && slot === 0) doc.addPage();
+        const col = slot % cols;
+        const row = Math.floor(slot / cols);
+        const cellX = margin + col * (cellW + gap);
+        const cellY = margin + row * (cellH + gap);
+
+        const raw = await fileToDataURL(files[i]);
+        const { dataUrl, w, h } = await normalizeToJpeg(raw);
+        const arW = w / h;
+        let drawW = cellW, drawH = cellW / arW;
+        if(drawH > cellH){ drawH = cellH; drawW = cellH * arW; }
+        const x = cellX + (cellW - drawW) / 2;
+        const y = cellY + (cellH - drawH) / 2;
+
+        doc.setDrawColor(200,196,180);
+        doc.rect(cellX, cellY, cellW, cellH);
+        doc.addImage(dataUrl, 'JPEG', x, y, drawW, drawH);
+      }
+      doc.save('رسیدها.pdf');
+      setStatus('receipt-status','');
+      stamp(btn, 'PDF ساخته و دانلود شد');
+    }catch(err){
+      console.error(err);
+      setStatus('receipt-status', 'مشکلی پیش اومد: ' + err.message, true);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  /* ================= Word to PDF ================= */
+  const wordPicker = makeFilePicker({dropId:'word-drop', inputId:'word-input', listId:'word-list', multiple:false});
+
+  document.getElementById('word-build').addEventListener('click', async () => {
+    const files = wordPicker.getFiles();
+    if(files.length === 0){ setStatus('word-status','یک فایل .docx انتخاب کن.', true); return; }
+    const file = files[0];
+    if(!/\.docx$/i.test(file.name)){
+      setStatus('word-status','فقط فایل با پسوند .docx پشتیبانی می‌شه.', true);
+      return;
+    }
+    const btn = document.getElementById('word-build');
+    btn.disabled = true;
+    setStatus('word-status','در حال تبدیل... (چند ثانیه طول می‌کشه)');
+    try{
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await window.mammoth.convertToHtml({ arrayBuffer });
+
+      const container = document.createElement('div');
+      container.setAttribute('dir','rtl');
+      container.style.cssText = 'font-family:Vazirmatn,sans-serif; width:180mm; padding:6mm; line-height:1.9; color:#111;';
+      container.innerHTML = result.value || '<p>(سند خالی است)</p>';
+      document.body.appendChild(container);
+
+      await window.html2pdf().set({
+        margin: 10,
+        filename: file.name.replace(/\.docx$/i,'') + '.pdf',
+        html2canvas: { scale: 2, useCORS:true },
+        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' },
+        pagebreak: { mode:['css','legacy'] }
+      }).from(container).save();
+
+      container.remove();
+      setStatus('word-status','');
+      stamp(btn, 'PDF ساخته و دانلود شد');
+    }catch(err){
+      console.error(err);
+      setStatus('word-status', 'مشکلی پیش اومد: ' + err.message, true);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  /* ================= Text to PDF ================= */
+  document.getElementById('text-build').addEventListener('click', async () => {
+    const title = document.getElementById('text-title').value.trim();
+    const body = document.getElementById('text-body').value;
+    if(!body.trim()){ setStatus('text-status','یه متنی بنویس اول.', true); return; }
+    const btn = document.getElementById('text-build');
+    btn.disabled = true;
+    setStatus('text-status','در حال ساخت PDF...');
+    try{
+      const container = document.createElement('div');
+      container.setAttribute('dir','rtl');
+      container.style.cssText = 'font-family:Vazirmatn,sans-serif; width:180mm; padding:6mm; color:#111;';
+      container.innerHTML =
+        (title ? `<h1 style="font-size:22px;margin:0 0 14px;">${escapeHtml(title)}</h1>` : '') +
+        `<p style="white-space:pre-wrap; line-height:2; font-size:14px;">${escapeHtml(body)}</p>`;
+      document.body.appendChild(container);
+
+      await window.html2pdf().set({
+        margin: 10,
+        filename: (title || 'متن') + '.pdf',
+        html2canvas: { scale: 2, useCORS:true },
+        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' },
+        pagebreak: { mode:['css','legacy'] }
+      }).from(container).save();
+
+      container.remove();
+      setStatus('text-status','');
+      stamp(btn, 'PDF ساخته و دانلود شد');
+    }catch(err){
+      console.error(err);
+      setStatus('text-status', 'مشکلی پیش اومد: ' + err.message, true);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  /* ================= Petty cash ================= */
+  let cashRows = [];
+
+  function formatToman(n){
+    return Number(n||0).toLocaleString('fa-IR');
+  }
+
+  function renderCash(){
+    const tbody = document.getElementById('cash-tbody');
+    tbody.innerHTML = '';
+    if(cashRows.length === 0){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">هنوز هزینه‌ای ثبت نشده.</td></tr>';
+    }else{
+      cashRows.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(r.date || '—')}</td>
+          <td>${escapeHtml(r.desc)}</td>
+          <td>${escapeHtml(r.cat)}</td>
+          <td class="amount-cell num">${formatToman(r.amount)}</td>
+          <td></td>`;
+        const del = document.createElement('button');
+        del.className = 'iconbtn'; del.textContent = '✕'; del.title = 'حذف'; del.type = 'button';
+        del.addEventListener('click', () => { cashRows.splice(i,1); renderCash(); });
+        tr.lastElementChild.appendChild(del);
+        tbody.appendChild(tr);
+      });
+    }
+    const total = cashRows.reduce((s,r) => s + Number(r.amount || 0), 0);
+    document.getElementById('cash-total').textContent = formatToman(total);
+  }
+
+  document.getElementById('cash-add').addEventListener('click', () => {
+    const date = document.getElementById('cash-date').value;
+    const desc = document.getElementById('cash-desc').value.trim();
+    const cat = document.getElementById('cash-cat').value;
+    const amount = parseFloat(document.getElementById('cash-amount').value);
+
+    if(!desc || !amount || amount <= 0){
+      setStatus('cash-status','شرح و مبلغ رو درست وارد کن.', true);
+      return;
+    }
+    cashRows.push({ date, desc, cat, amount });
+    renderCash();
+    setStatus('cash-status','');
+    document.getElementById('cash-desc').value = '';
+    document.getElementById('cash-amount').value = '';
+    document.getElementById('cash-desc').focus();
+  });
+
+  document.getElementById('cash-clear').addEventListener('click', () => {
+    if(cashRows.length === 0) return;
+    if(confirm('همه‌ی ردیف‌های تنخواه پاک بشه؟')){
+      cashRows = [];
+      renderCash();
+    }
+  });
+
+  document.getElementById('cash-export').addEventListener('click', () => {
+    if(cashRows.length === 0){ setStatus('cash-status','هنوز هزینه‌ای برای خروجی نیست.', true); return; }
+    try{
+      const data = cashRows.map(r => ({
+        'تاریخ': r.date || '',
+        'شرح': r.desc,
+        'دسته': r.cat,
+        'مبلغ (تومان)': r.amount
+      }));
+      const ws = window.XLSX.utils.json_to_sheet(data);
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, ws, 'تنخواه');
+      window.XLSX.writeFile(wb, 'تنخواه.xlsx');
+      setStatus('cash-status','');
+      stamp(document.getElementById('cash-export'), 'اکسل دانلود شد');
+    }catch(err){
+      console.error(err);
+      setStatus('cash-status', 'مشکلی پیش اومد: ' + err.message, true);
+    }
+  });
+
+  // default date = today
+  document.getElementById('cash-date').value = new Date().toISOString().slice(0,10);
+  renderCash();
+
+})();
+</script>
+</body>
+</html>
